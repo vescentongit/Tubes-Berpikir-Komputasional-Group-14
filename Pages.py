@@ -103,7 +103,7 @@ def alarm():
 # Weather (4)
 def weather():
     print('---Weather---')
-    APIKey = 'c10df769389502b7bdca80f56674191e'
+    APIKey = 'XXXXXXXXXXXXXXXXXX'
     user_input = input('Want to check the weather? (y/n) : ').lower()
         
     if user_input == 'y':
