@@ -11,6 +11,7 @@ dotenv.load_dotenv()
 # Konfigurasi variabel konstan
 WIDTH, HEIGHT = 800, 600
 FPS = 60
+beepFreq = 1000
 API_KEY = os.getenv('WEATHER_API_KEY')
 logo = pygame.image.load('TuBes_Berkom_2025/assets/watch.png')
 
@@ -148,9 +149,15 @@ class App:
         self.calc_btn = Button(WIDTH // 2 - 75, 220, 150, 50, "Calculate", action='calc')
 
         # Settings Page
-        self.settings_loc_in = InputBox(50, 220, 300, 40, f"Enter new location...")
-        self.settings_save_btn = Button(370, 220, 100, 40, "Save", action='save_loc')
-        self.settings_unit_btn = Button(50, 290, 300, 50, "Toggle Unit", action='toggle_unit')
+        self.settings_loc_in = InputBox(50, 240, 300, 40, f"Enter new location...")
+        self.settings_save_btn = Button(370, 240, 100, 40, "Save", action='save_loc')
+        
+        # Frequency
+        self.settings_freq_in = InputBox(50, 320, 300, 40, "Frequency (37-32000 Hz)")
+        self.settings_freq_btn = Button(370, 320, 100, 40, "Set Hz", action='save_freq')
+
+        # Toggle unit
+        self.settings_unit_btn = Button(50, 380, 300, 50, "Toggle Unit", action='toggle_unit')
 
     # messaging handler
     def show_message(self, msg, duration=3, is_error=False):
@@ -182,6 +189,21 @@ class App:
             else:
                 winsound.Beep(500, 200)
                 self.show_message("Please enter a city", is_error=True)
+        elif action == 'save_freq':
+            try:
+                new_freq = int(self.settings_freq_in.text)
+                if 37 <= new_freq <= 32767:
+                    global beepFreq
+                    beepFreq = new_freq
+                    self.show_message(f"Frequency set: {beepFreq}Hz")
+                    self.settings_freq_in.text = ""
+                    # Test beep
+                    winsound.Beep(beepFreq, 200)
+                else:
+                    raise ValueError
+            except:
+                winsound.Beep(500, 200)
+                self.show_message("Invalid Hz (37-32767)", is_error=True)
                 
         elif action == 'toggle_unit':
             global defaultUnit
@@ -212,7 +234,7 @@ class App:
                 # Buzzer handler
                 try:
                     for i in range(3):
-                        winsound.Beep(1000, 500)
+                        winsound.Beep(beepFreq, 500)
                         time.sleep(0.1)
                 except: 
                     pass
@@ -239,7 +261,7 @@ class App:
                     try:
                         # Beep 5 times 
                         for i in range(5):
-                            winsound.Beep(1000, 200)
+                            winsound.Beep(beepFreq, 200)
                             time.sleep(0.1)
                     except: 
                         pass
@@ -311,15 +333,15 @@ class App:
         # Display current values
         settings_text = [
             f"Current Location: {globalDefaultLocation}",
-            f"Temperature Unit: {defaultUnit}"
+            f"Temperature Unit: {defaultUnit}",
+            f"Beep Frequency: {beepFreq} Hz"
         ]
         for text in settings_text:
             surface = FONT_SMALL.render(text, True, TEXT_COLOR)
             self.screen.blit(surface, (50, y))
-            y += 40
+            y += 35
 
-    # --- Core Loop ---
-
+    # Main Loop
     def run(self):
         while self.running:
             self.screen.fill(BG_COLOR)
@@ -345,9 +367,9 @@ class App:
                     cur_inps, cur_btns = [self.calc_in], cur_btns + [self.calc_btn]
                 elif self.current_page == 'settings':
                     self.draw_settings_content()
-                    # Add the Location Input + Save Button + Unit Toggle
-                    cur_inps = [self.settings_loc_in]
-                    cur_btns = cur_btns + [self.settings_save_btn, self.settings_unit_btn]
+                    # Add Location + Frequency + Unit Toggle
+                    cur_inps = [self.settings_loc_in, self.settings_freq_in] # <--- Added freq input
+                    cur_btns = cur_btns + [self.settings_save_btn, self.settings_freq_btn, self.settings_unit_btn] # <--- Added freq button
 
             # Pygame Event Handlers
             for event in pygame.event.get():
@@ -378,9 +400,11 @@ class App:
                             for b in cur_btns:
                                 if b.action: self.handle_action(b.action)
 
-            
+            # Hover effect
             for b in cur_btns: 
                 b.check_hover(m_pos); b.draw(self.screen)
+                
+            # Input text
             for i in cur_inps: 
                 i.draw(self.screen)
             
