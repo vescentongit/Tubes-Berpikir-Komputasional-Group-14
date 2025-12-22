@@ -28,6 +28,8 @@ ERROR_COLOR = (239, 68, 68)
 # Inisiasi pygame
 pygame.init()
 pygame.display.set_icon(logo)
+pygame.mixer.music.load('TuBes_Berkom_2025/assets/bossanova.mp3')
+pygame.mixer.music.play(loops=-1)
 
 # Fonts
 def get_font(size):
@@ -119,7 +121,7 @@ class App:
         self.setup_ui()
 
     def setup_ui(self):
-        """Initialize all persistent UI components once."""
+        "Initialize all UI components"
         self.back_btn = Button(WIDTH - 120, 20, 100, 40, "Back")
         
         # Menu Page
@@ -145,8 +147,39 @@ class App:
         self.weather_btn = Button(WIDTH // 2 - 75, 220, 150, 50, "Get Weather", action='weather')
 
         # Calculator Page
-        self.calc_in = InputBox(WIDTH // 2 - 200, 150, 400, 40, "Expression (e.g. 5*5)")
-        self.calc_btn = Button(WIDTH // 2 - 75, 220, 150, 50, "Calculate", action='calc')
+        self.calc_in = InputBox(WIDTH // 2 - 150, 150, 300, 50, "0")
+        self.calc_btns = []
+        
+        # Grid Layout: 4 rows, 4 columns
+        buttons = [
+            ['7', '8', '9', '/'],
+            ['4', '5', '6', '*'],
+            ['1', '2', '3', '-'],
+            ['C', '0', '=', '+']
+        ]
+        
+        btn_size = 60
+        gap = 15
+        start_x = WIDTH // 2 - ((4 * btn_size + 3 * gap) // 2)
+        start_y = 220
+        
+        for r, row in enumerate(buttons):
+            for c, char in enumerate(row):
+                x = start_x + c * (btn_size + gap)
+                y = start_y + r * (btn_size + gap)
+                
+                # Color coding
+                if char in "0123456789": 
+                    color = CARD_COLOR
+                elif char == "C": 
+                    color = ERROR_COLOR
+                elif char == "=": 
+                    color = SUCCESS_COLOR
+                else: 
+                    color = ACCENT_COLOR # Operators
+                
+                # Create button with specific action header 'calc_X'
+                self.calc_btns.append(Button(x, y, btn_size, btn_size, char, color, action=f"calc_{char}"))
 
         # Settings Page
         self.settings_loc_in = InputBox(50, 240, 300, 40, f"Enter new location...")
@@ -209,6 +242,20 @@ class App:
             global defaultUnit
             defaultUnit = "Imperial" if defaultUnit == "Metric" else "Metric"
             self.show_message(f"Unit: {defaultUnit}")
+        
+        elif action.startswith('calc_'):
+            val = action.split('_')[1]
+            
+            if val == 'C':
+                self.calc_in.text = ""
+                winsound.Beep(300, 100) # Low beep for clear
+            elif val == '=':
+                self.logic_calc(self.calc_in.text)
+            else:
+                # Prevent appending if text is "Error" or just starting
+                if self.calc_in.text == "Error": self.calc_in.text = ""
+                self.calc_in.text += val
+                winsound.Beep(beepFreq, 50) # Short beep for typing
 
     def logic_timer(self, dur_str):
         try:
@@ -250,26 +297,36 @@ class App:
         if not name or not t_str: 
             winsound.Beep(500, 200)
             return self.show_message("Fill both fields", is_error=True)
-        active_alarms.append({'name': name, 'time': t_str})
+        
+        try:
+            valid_time = datetime.strptime(t_str, "%H:%M")
+
+            formatted_time = valid_time.strftime("%H:%M")
+        except ValueError:
+            winsound.Beep(500, 200)
+            return self.show_message("Format: HH:MM (24h)", is_error=True)
+
+        # 3. Add to active list
+        active_alarms.append({'name': name, 'time': formatted_time})
         
         def run_a():
             while True:
                 # Check current time against alarm time
-                if datetime.now().strftime("%H:%M") == t_str:
+                current_time = datetime.now().strftime("%H:%M")
+                if current_time == formatted_time:
                     self.show_message(f"ALARM: {name}!")
-                    # Buzzer
+                    # Buzzer logic
                     try:
-                        # Beep 5 times 
                         for i in range(5):
                             winsound.Beep(beepFreq, 200)
                             time.sleep(0.1)
-                    except: 
-                        pass
+                    except: pass
                     break
-                time.sleep(10) # Check every 10 seconds
+                # Check every second to be safe
+                time.sleep(1) 
                 
         threading.Thread(target=run_a, daemon=True).start()
-        self.show_message(f"Alarm set for {t_str}")
+        self.show_message(f"Alarm set for {formatted_time}")
 
     def logic_weather(self, city):
         # Input cleaning
@@ -315,6 +372,7 @@ class App:
         try: 
             if any(c not in "0123456789+-*/(). " for c in expr): 
                 raise ValueError
+            
             self.show_message(f"Result: {eval(expr)}")
         except: 
             winsound.Beep(500, 200)
@@ -364,13 +422,12 @@ class App:
                 elif self.current_page == 'weather':
                     cur_inps, cur_btns = [self.weather_in], cur_btns + [self.weather_btn]
                 elif self.current_page == 'calculator':
-                    cur_inps, cur_btns = [self.calc_in], cur_btns + [self.calc_btn]
+                    cur_inps = [self.calc_in]    
+                    cur_btns = cur_btns + self.calc_btns
                 elif self.current_page == 'settings':
                     self.draw_settings_content()
-                    # Add Location + Frequency + Unit Toggle
                     cur_inps = [self.settings_loc_in, self.settings_freq_in] # <--- Added freq input
-                    cur_btns = cur_btns + [self.settings_save_btn, self.settings_freq_btn, self.settings_unit_btn] # <--- Added freq button
-
+                    cur_btns = cur_btns + [self.settings_save_btn, self.settings_freq_btn, self.settings_unit_btn]
             # Pygame Event Handlers
             for event in pygame.event.get():
                 
